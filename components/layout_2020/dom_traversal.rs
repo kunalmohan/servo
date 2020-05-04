@@ -87,14 +87,12 @@ fn traverse_children_of<'dom, Node>(
 {
     traverse_pseudo_element(WhichPseudoElement::Before, parent_element, context, handler);
 
-    let mut next = parent_element.first_child();
-    while let Some(child) = next {
+    for child in iter_child_nodes(parent_element) {
         if let Some(contents) = child.as_text() {
             handler.handle_text(child, contents, &child.style(context));
         } else if child.is_element() {
             traverse_element(child, context, handler);
         }
-        next = child.next_sibling();
     }
 
     traverse_pseudo_element(WhichPseudoElement::After, parent_element, context, handler);
@@ -117,7 +115,8 @@ fn traverse_element<'dom, Node>(
                 // <https://drafts.csswg.org/css-display-3/#valdef-display-contents>
                 element.unset_boxes_in_subtree()
             } else {
-                *element.layout_data_mut().self_box.borrow_mut() = Some(LayoutBox::DisplayContents);
+                *element.layout_data_mut().unwrap().self_box.borrow_mut() =
+                    Some(LayoutBox::DisplayContents);
                 traverse_children_of(element, context, handler)
             }
         },
@@ -369,7 +368,7 @@ pub(crate) trait NodeExt<'dom>: 'dom + Copy + LayoutNode<'dom> + Send + Sync {
     fn style(self, context: &LayoutContext) -> ServoArc<ComputedValues>;
 
     fn as_opaque(self) -> OpaqueNode;
-    fn layout_data_mut(self) -> AtomicRefMut<'dom, LayoutDataForElement>;
+    fn layout_data_mut(self) -> Option<AtomicRefMut<'dom, LayoutDataForElement>>;
     fn element_box_slot(&self) -> BoxSlot<'dom>;
     fn pseudo_element_box_slot(&self, which: WhichPseudoElement) -> BoxSlot<'dom>;
     fn unset_pseudo_element_box(self, which: WhichPseudoElement);
@@ -447,18 +446,17 @@ where
     }
 
     #[allow(unsafe_code)]
-    fn layout_data_mut(self) -> AtomicRefMut<'dom, LayoutDataForElement> {
+    fn layout_data_mut(self) -> Option<AtomicRefMut<'dom, LayoutDataForElement>> {
         self.get_style_and_layout_data()
             .map(|d| d.layout_data.borrow_mut())
-            .unwrap()
     }
 
     fn element_box_slot(&self) -> BoxSlot<'dom> {
-        BoxSlot::new(self.layout_data_mut().self_box.clone())
+        BoxSlot::new(self.layout_data_mut().unwrap().self_box.clone())
     }
 
     fn pseudo_element_box_slot(&self, which: WhichPseudoElement) -> BoxSlot<'dom> {
-        let mut data = self.layout_data_mut();
+        let mut data = self.layout_data_mut().unwrap();
         let pseudos = data.pseudo_elements.get_or_insert_with(Default::default);
         let cell = match which {
             WhichPseudoElement::Before => &mut pseudos.before,
@@ -468,7 +466,7 @@ where
     }
 
     fn unset_pseudo_element_box(self, which: WhichPseudoElement) {
-        if let Some(pseudos) = &mut self.layout_data_mut().pseudo_elements {
+        if let Some(pseudos) = &mut self.layout_data_mut().unwrap().pseudo_elements {
             match which {
                 WhichPseudoElement::Before => *pseudos.before.borrow_mut() = None,
                 WhichPseudoElement::After => *pseudos.after.borrow_mut() = None,
@@ -483,11 +481,12 @@ where
         let mut node = self;
         loop {
             if node.is_element() {
-                let traverse_children = {
-                    let mut layout_data = node.layout_data_mut();
+                let traverse_children = if let Some(mut layout_data) = node.layout_data_mut() {
                     layout_data.pseudo_elements = None;
                     let self_box = layout_data.self_box.borrow_mut().take();
                     self_box.is_some()
+                } else {
+                    false
                 };
                 if traverse_children {
                     // Only descend into children if we removed a box.
@@ -519,4 +518,17 @@ where
             }
         }
     }
+}
+
+pub(crate) fn iter_child_nodes<'dom, Node>(parent: Node) -> impl Iterator<Item = Node>
+where
+    Node: NodeExt<'dom>,
+{
+    let mut next = parent.first_child();
+    std::iter::from_fn(move || {
+        next.map(|child| {
+            next = child.next_sibling();
+            child
+        })
+    })
 }
