@@ -1368,6 +1368,7 @@ impl LayoutThread {
         let mut display_list = DisplayListBuilder::new(
             self.id.to_webrender(),
             context,
+            fragment_tree.canvas_background.from_element,
             fragment_tree.scrollable_overflow(),
         );
 
