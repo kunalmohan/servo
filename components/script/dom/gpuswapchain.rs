@@ -4,11 +4,15 @@
 
 use crate::dom::bindings::cell::DomRefCell;
 use crate::dom::bindings::codegen::Bindings::GPUSwapChainBinding::GPUSwapChainMethods;
+use crate::dom::bindings::codegen::Bindings::GPUTextureBinding::{
+    GPUTextureFormat, GPUTextureMethods,
+};
 use crate::dom::bindings::reflector::{reflect_dom_object, Reflector};
-use crate::dom::bindings::root::{Dom, DomRoot};
+use crate::dom::bindings::root::{Dom, DomRoot, MutDom};
 use crate::dom::bindings::str::DOMString;
 use crate::dom::globalscope::GlobalScope;
 use crate::dom::gpucanvascontext::GPUCanvasContext;
+use crate::dom::gpudevice::GPUDevice;
 use crate::dom::gputexture::GPUTexture;
 use dom_struct::dom_struct;
 use webgpu::{WebGPU, WebGPURequest, WebGPUTexture};
@@ -20,17 +24,30 @@ pub struct GPUSwapChain {
     channel: WebGPU,
     label: DomRefCell<Option<DOMString>>,
     context: Dom<GPUCanvasContext>,
-    texture: Dom<GPUTexture>,
+    texture: MutDom<GPUTexture>,
+    device: Dom<GPUDevice>,
+    format: GPUTextureFormat,
+    usage: u32,
 }
 
 impl GPUSwapChain {
-    fn new_inherited(channel: WebGPU, context: &GPUCanvasContext, texture: &GPUTexture) -> Self {
+    fn new_inherited(
+        channel: WebGPU,
+        context: &GPUCanvasContext,
+        texture: &GPUTexture,
+        device: &GPUDevice,
+        format: GPUTextureFormat,
+        usage: u32,
+    ) -> Self {
         Self {
             reflector_: Reflector::new(),
             channel,
             context: Dom::from_ref(context),
-            texture: Dom::from_ref(texture),
+            texture: MutDom::new(texture),
             label: DomRefCell::new(None),
+            device: Dom::from_ref(device),
+            format,
+            usage,
         }
     }
 
@@ -39,9 +56,14 @@ impl GPUSwapChain {
         channel: WebGPU,
         context: &GPUCanvasContext,
         texture: &GPUTexture,
+        device: &GPUDevice,
+        format: GPUTextureFormat,
+        usage: u32,
     ) -> DomRoot<Self> {
         reflect_dom_object(
-            Box::new(GPUSwapChain::new_inherited(channel, context, texture)),
+            Box::new(GPUSwapChain::new_inherited(
+                channel, context, texture, device, format, usage,
+            )),
             global,
         )
     }
@@ -61,7 +83,25 @@ impl GPUSwapChain {
     }
 
     pub fn texture_id(&self) -> WebGPUTexture {
-        self.texture.id()
+        self.texture.get().id()
+    }
+
+    pub fn update_texture(&self, texture: &GPUTexture) {
+        let text = self.texture.get();
+        text.Destroy();
+        self.texture.set(texture);
+    }
+
+    pub fn format(&self) -> GPUTextureFormat {
+        self.format
+    }
+
+    pub fn usage(&self) -> u32 {
+        self.usage
+    }
+
+    pub fn device(&self) -> &GPUDevice {
+        &*self.device
     }
 }
 
@@ -80,6 +120,6 @@ impl GPUSwapChainMethods for GPUSwapChain {
     fn GetCurrentTexture(&self) -> DomRoot<GPUTexture> {
         self.context.mark_as_dirty();
         //self.context.send_swap_chain_present();
-        DomRoot::from_ref(&*self.texture)
+        self.texture.get()
     }
 }

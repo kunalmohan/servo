@@ -102,7 +102,7 @@ impl HTMLCanvasElement {
                 },
                 CanvasContext::WebGL(ref context) => context.recreate(size),
                 CanvasContext::WebGL2(ref context) => context.recreate(size),
-                CanvasContext::WebGPU(_) => unimplemented!(),
+                CanvasContext::WebGPU(ref context) => context.recreate(size),
             }
         }
     }

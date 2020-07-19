@@ -8,3 +8,9 @@ interface GPUSwapChain {
     GPUTexture getCurrentTexture();
 };
 GPUSwapChain includes GPUObjectBase;
+
+dictionary GPUSwapChainDescriptor : GPUObjectDescriptorBase {
+    required GPUDevice device;
+    required GPUTextureFormat format;
+    GPUTextureUsageFlags usage = 0x10;  // GPUTextureUsage.OUTPUT_ATTACHMENT
+};
