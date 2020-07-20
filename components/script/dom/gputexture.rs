@@ -35,6 +35,7 @@ pub struct GPUTexture {
     format: GPUTextureFormat,
     texture_usage: u32,
     valid: Cell<bool>,
+    destroyed: Cell<bool>,
 }
 
 impl GPUTexture {
@@ -63,6 +64,7 @@ impl GPUTexture {
             format,
             texture_usage,
             valid: Cell::new(valid),
+            destroyed: Cell::new(false),
         }
     }
 
@@ -99,7 +101,9 @@ impl GPUTexture {
 
 impl Drop for GPUTexture {
     fn drop(&mut self) {
-        self.Destroy()
+        if !self.destroyed.get() {
+            self.Destroy()
+        }
     }
 }
 
@@ -199,5 +203,6 @@ impl GPUTextureMethods for GPUTexture {
                 self.texture.0, e
             );
         };
+        self.destroyed.set(true);
     }
 }

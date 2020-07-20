@@ -129,7 +129,9 @@ impl GPUBuffer {
 
 impl Drop for GPUBuffer {
     fn drop(&mut self) {
-        self.Destroy()
+        if self.state.get() != GPUBufferState::Destroyed {
+            self.Destroy()
+        }
     }
 }
 

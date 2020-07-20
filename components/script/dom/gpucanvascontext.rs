@@ -79,6 +79,7 @@ impl GPUCanvasContext {
         } else {
             webrender_api::ImageKey::DUMMY
         };
+        println!("layout_handle {:?}", image_key);
         HTMLCanvasDataSource::WebGPU(image_key)
     }
 

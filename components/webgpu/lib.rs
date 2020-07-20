@@ -751,6 +751,7 @@ impl<'a> WGPU<'a> {
                             gfx_select!(b_id => global.buffer_destroy(*b_id));
                         }
                         for b_id in data.queued_buffer_ids.iter() {
+                            gfx_select!(b_id => global.buffer_unmap(*b_id));
                             gfx_select!(b_id => global.buffer_destroy(*b_id));
                         }
                         for b_id in data.unassigned_buffer_ids.iter() {
@@ -887,6 +888,7 @@ impl<'a> WGPU<'a> {
                         texture_id,
                         encoder_id,
                     } => {
+                        println!("SwapChainPresent {:?}", external_id);
                         let global = &self.global;
                         let device_id;
                         let queue_id;
@@ -1041,6 +1043,7 @@ impl<'a> WGPU<'a> {
                         buffer_size,
                         external_id,
                     } => {
+                        println!("UpdateWebRenderData {:?}", external_id);
                         let global = &self.global;
                         let data_pt = gfx_select!(buffer_id =>
                             global.buffer_get_mapped_range(buffer_id, 0, None));
@@ -1050,6 +1053,7 @@ impl<'a> WGPU<'a> {
                         {
                             present_data.data = data;
                             let mut txn = webrender_api::Transaction::new();
+                            println!("ImageKey {:?}", present_data.image_key);
                             txn.update_image(
                                 present_data.image_key,
                                 present_data.image_desc,
@@ -1179,6 +1183,7 @@ impl WebrenderExternalImageApi for WGPUExternalImages {
     fn lock(&mut self, id: u64) -> (WebrenderImageSource, Size2D<i32>) {
         let size;
         let data;
+        println!("Locked by webrender {:?}", id);
         if let Some(present_data) = self.images.lock().unwrap().get(&id) {
             size = present_data.size;
             data = present_data.data.clone();

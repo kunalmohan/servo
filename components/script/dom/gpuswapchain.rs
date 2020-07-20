@@ -80,6 +80,7 @@ impl GPUSwapChain {
                 image_key, e
             );
         }
+        self.texture.get().Destroy();
     }
 
     pub fn texture_id(&self) -> WebGPUTexture {
@@ -87,8 +88,6 @@ impl GPUSwapChain {
     }
 
     pub fn update_texture(&self, texture: &GPUTexture) {
-        let text = self.texture.get();
-        text.Destroy();
         self.texture.set(texture);
     }
 
@@ -119,7 +118,6 @@ impl GPUSwapChainMethods for GPUSwapChain {
     /// https://gpuweb.github.io/gpuweb/#dom-gpuswapchain-getcurrenttexture
     fn GetCurrentTexture(&self) -> DomRoot<GPUTexture> {
         self.context.mark_as_dirty();
-        //self.context.send_swap_chain_present();
         self.texture.get()
     }
 }
